@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reflex Duel</title>
+  <meta property="og:title" content="Reflex Duel">
+  <meta property="og:description" content="Two players. One circle. First to tap wins. Prove your reflexes are superhuman.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+
+  <!-- Screen 1: Landing -->
+  <div id="screen-landing">
+    <div class="landing-inner">
+      <h1 class="game-title">REFLEX<br>DUEL</h1>
+      <p class="tagline">Your thumbs think they're fast.<br>Prove it.</p>
+      <input id="player-name" type="text" placeholder="enter your name" maxlength="20" autocomplete="off">
+      <button class="btn-primary" onclick="createRoom()">Create Arena</button>
+      <div class="divider"><span>or join one</span></div>
+      <div id="join-section">
+        <input id="join-code" type="text" placeholder="ROOM CODE" maxlength="6" autocomplete="off"
+               oninput="this.value=this.value.toUpperCase()">
+        <button class="btn-secondary" onclick="joinRoom()">Enter Arena</button>
+      </div>
+      <p id="error-msg" class="error-msg" style="display:none"></p>
+    </div>
+  </div>
+
+  <!-- Screen 2: Waiting -->
+  <div id="screen-waiting" style="display:none">
+    <div class="waiting-inner">
+      <p class="waiting-label">your arena code</p>
+      <h2 id="room-code-display" class="room-code"></h2>
+      <p class="waiting-copy">warming up the reflex cannons...</p>
+      <small class="waiting-hint">send this code — they pick "Enter Arena"</small>
+    </div>
+  </div>
+
+  <!-- Screen 3: Game -->
+  <div id="screen-game" style="display:none">
+    <div id="scoreboard">
+      <div class="player-score">
+        <span id="host-name-display" class="score-name">HOST</span>
+        <span id="host-wins" class="score-num">0</span>
+      </div>
+      <div class="vs-divider">VS</div>
+      <div class="player-score">
+        <span id="guest-wins" class="score-num">0</span>
+        <span id="guest-name-display" class="score-name">GUEST</span>
+      </div>
+    </div>
+
+    <div id="arena">
+      <div id="arena-message" class="arena-message">get ready...</div>
+      <div id="target-circle" class="target-circle" style="display:none"></div>
+    </div>
+
+    <div id="round-result" class="round-result" style="display:none">
+      <p id="round-result-text" class="round-result-text"></p>
+      <p id="reaction-time-display" class="reaction-time"></p>
+      <button id="next-round-btn" class="btn-primary" onclick="readyNextRound()">Next Round</button>
+    </div>
+  </div>
+
+  <!-- Screen 4: Result -->
+  <div id="screen-result" style="display:none">
+    <div class="result-inner">
+      <div id="result-badge" class="superhuman-badge" style="display:none">⚡ Superhuman Reflex</div>
+      <h2 id="result-headline" class="result-headline"></h2>
+      <p id="result-detail" class="result-detail"></p>
+      <div id="share" class="share-section">
+        <button class="btn-primary" onclick="shareChallenge()">Challenge a Friend</button>
+      </div>
+      <button class="btn-secondary" onclick="location.reload()">Play Again</button>
+    </div>
+  </div>
+
+</body>
+</html>
