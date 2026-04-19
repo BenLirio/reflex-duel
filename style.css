@@ -315,14 +315,44 @@ input::placeholder {
   100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 }
 
-.target-circle.hit {
-  background: var(--green);
-  box-shadow: 0 0 40px rgba(0,255,136,0.7);
+/* Pending: player has tapped locally but the verdict hasn't been decided yet.
+   Neutral white/grey pulse so we don't mislead with a premature green. */
+.target-circle.pending {
+  background: var(--white);
+  box-shadow: 0 0 30px rgba(240,240,240,0.5);
+  animation: pending-pulse 0.4s ease-in-out infinite alternate;
 }
 
+@keyframes pending-pulse {
+  0%   { transform: translate(-50%, -50%) scale(0.95); opacity: 0.7; }
+  100% { transform: translate(-50%, -50%) scale(1.05); opacity: 1; }
+}
+
+/* Win: verdict confirmed — you actually won the round. Strong green flash. */
+.target-circle.hit {
+  background: var(--green);
+  box-shadow: 0 0 60px rgba(0,255,136,0.9), 0 0 120px rgba(0,255,136,0.5);
+  animation: win-flash 0.35s ease-out;
+}
+
+@keyframes win-flash {
+  0%   { transform: translate(-50%, -50%) scale(1.4); box-shadow: 0 0 100px rgba(0,255,136,1), 0 0 200px rgba(0,255,136,0.8); }
+  100% { transform: translate(-50%, -50%) scale(1);   box-shadow: 0 0 60px rgba(0,255,136,0.9), 0 0 120px rgba(0,255,136,0.5); }
+}
+
+/* Loss: verdict confirmed — opponent won. Red, clearly not a success. */
 .target-circle.missed {
-  background: #333;
-  box-shadow: none;
+  background: var(--red);
+  box-shadow: 0 0 40px rgba(255,45,0,0.7);
+  animation: loss-shake 0.3s ease-out;
+}
+
+@keyframes loss-shake {
+  0%   { transform: translate(-50%, -50%) translateX(0); }
+  25%  { transform: translate(-50%, -50%) translateX(-6px); }
+  50%  { transform: translate(-50%, -50%) translateX(6px); }
+  75%  { transform: translate(-50%, -50%) translateX(-3px); }
+  100% { transform: translate(-50%, -50%) translateX(0); }
 }
 
 .round-result {

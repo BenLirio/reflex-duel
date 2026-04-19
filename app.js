@@ -315,8 +315,10 @@ function onArenaTap(e) {
   const reactionMs = Math.max(0, now - circleShowAt);
   myTapMs = reactionMs;
 
-  // Visual: I tapped — show pending state. Don't claim victory yet.
-  circle.className = 'target-circle hit';
+  // Visual: I tapped — show a neutral "pending" state. DO NOT turn green yet;
+  // the other player might have tapped faster. The final color is set by
+  // finalizeRound() once we know who actually won.
+  circle.className = 'target-circle pending';
 
   send({
     action: 'game_update',
