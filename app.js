@@ -23,6 +23,14 @@ let myTapped       = false;
 let roundOver      = false;
 let roundScheduleTimer = null;
 
+// Race-condition resolution: collect both players' taps before deciding the winner.
+// This guarantees both clients reach the same verdict from the same data, even when
+// taps happen within milliseconds of each other.
+let myTapMs            = null;   // my reactionMs for current round (null = haven't tapped)
+let opponentTapMs      = null;   // opponent's reactionMs for current round (null = haven't received)
+let resolveTimer       = null;   // grace window after the first tap to wait for the other side
+const RESOLVE_GRACE_MS = 600;    // generous — covers a full round-trip on slow networks
+
 // ── Utils ─────────────────────────────────────────────────────
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -202,9 +210,12 @@ function showRoundResult(headline, reactionText) {
 // ── Host: schedule the next round ────────────────────────────
 function scheduleNextRound() {
   if (roundScheduleTimer) clearTimeout(roundScheduleTimer);
+  if (resolveTimer) { clearTimeout(resolveTimer); resolveTimer = null; }
 
   roundOver = false;
   myTapped  = false;
+  myTapMs   = null;
+  opponentTapMs = null;
   setArenaMessage('FOCUS...', true);
   hideCircle();
 
@@ -241,7 +252,13 @@ function applyUpdate(state) {
     applyRoundStart(state.circleX, state.circleY, state.showAt);
 
   } else if (state.type === 'round_tap') {
-    applyRoundTap(state.tappedBy, state.reactionMs);
+    // Opponent tapped. Record their reaction, then try to resolve.
+    if (roundOver) return;
+    if (opponentTapMs === null) {
+      opponentTapMs = state.reactionMs;
+    }
+    scheduleResolve();
+    tryResolveRound();
 
   } else if (state.type === 'round_next') {
     // Host signals next round starting
@@ -261,6 +278,9 @@ function applyRoundStart(cx, cy, showAt) {
   roundActive  = false;
   roundOver    = false;
   myTapped     = false;
+  myTapMs      = null;
+  opponentTapMs = null;
+  if (resolveTimer) { clearTimeout(resolveTimer); resolveTimer = null; }
 
   hideCircle();
   hideRoundResult();
@@ -293,6 +313,10 @@ function onArenaTap(e) {
   myTapped = true;
   const now = Date.now();
   const reactionMs = Math.max(0, now - circleShowAt);
+  myTapMs = reactionMs;
+
+  // Visual: I tapped — show pending state. Don't claim victory yet.
+  circle.className = 'target-circle hit';
 
   send({
     action: 'game_update',
@@ -304,39 +328,85 @@ function onArenaTap(e) {
     }
   });
 
-  // Apply locally immediately — I'm the winner of this tap
-  applyRoundTap(playerRole, reactionMs);
+  // Wait for opponent's tap (or grace timeout) before deciding.
+  scheduleResolve();
+  tryResolveRound();
 }
 
-function applyRoundTap(winnerRole, reactionMs) {
-  if (roundOver) return;  // Guard: only process first tap
+// Schedule the deterministic resolution. Both clients run this with the same
+// timeout so they reach a verdict around the same wall-clock moment.
+function scheduleResolve() {
+  if (resolveTimer || roundOver) return;
+  resolveTimer = setTimeout(() => {
+    resolveTimer = null;
+    tryResolveRound(true);
+  }, RESOLVE_GRACE_MS);
+}
+
+// Decide the winner from whatever tap data we have. Both clients run identical
+// logic over identical data, so they always agree:
+//   - both tapped → lower reactionMs wins; ties go to host (deterministic)
+//   - only one tapped (force=true after grace window) → that player wins
+//   - neither tapped → no resolution yet
+function tryResolveRound(force) {
+  if (roundOver) return;
+
+  const haveMine = myTapMs !== null;
+  const haveTheirs = opponentTapMs !== null;
+
+  if (!haveMine && !haveTheirs) return;
+  if (!force && !(haveMine && haveTheirs)) return;
+
+  let winnerRole, winnerReactionMs;
+
+  if (haveMine && haveTheirs) {
+    if (myTapMs < opponentTapMs) {
+      winnerRole = playerRole;
+      winnerReactionMs = myTapMs;
+    } else if (opponentTapMs < myTapMs) {
+      winnerRole = (playerRole === 'host') ? 'guest' : 'host';
+      winnerReactionMs = opponentTapMs;
+    } else {
+      // Exact tie — deterministic tiebreak: host wins.
+      winnerRole = 'host';
+      winnerReactionMs = myTapMs;
+    }
+  } else if (haveMine) {
+    winnerRole = playerRole;
+    winnerReactionMs = myTapMs;
+  } else {
+    winnerRole = (playerRole === 'host') ? 'guest' : 'host';
+    winnerReactionMs = opponentTapMs;
+  }
+
+  finalizeRound(winnerRole, winnerReactionMs);
+}
+
+function finalizeRound(winnerRole, reactionMs) {
+  if (roundOver) return;
   roundOver   = true;
   roundActive = false;
 
-  if (roundScheduleTimer) clearTimeout(roundScheduleTimer);
+  if (roundScheduleTimer) { clearTimeout(roundScheduleTimer); roundScheduleTimer = null; }
+  if (resolveTimer)        { clearTimeout(resolveTimer);        resolveTimer        = null; }
 
   const iWon = (winnerRole === playerRole);
 
-  // Update circle
+  // Update circle visual to match the verdict (in case it was set wrongly on local tap).
   const circle = document.getElementById('target-circle');
   circle.className = 'target-circle ' + (iWon ? 'hit' : 'missed');
 
-  if (iWon) {
-    if (winnerRole === 'host') hostWins++;
-    else guestWins++;
-  } else {
-    if (winnerRole === 'host') hostWins++;
-    else guestWins++;
-  }
+  if (winnerRole === 'host') hostWins++;
+  else guestWins++;
 
-  // Track best reaction
+  // Track best reaction (only if I actually won — reactionMs reflects the winner)
   if (iWon && reactionMs < bestReactionMs) {
     bestReactionMs = reactionMs;
   }
 
   updateScoreboard();
 
-  const winnerLabel = (winnerRole === playerRole)
+  const winnerLabel = iWon
     ? playerName.toUpperCase()
     : opponentName.toUpperCase();
 
